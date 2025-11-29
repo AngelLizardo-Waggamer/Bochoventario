@@ -23,7 +23,7 @@ public class Articulo
     [Column("descripcion")]
     public string? Descripcion { get; set; }
 
-    [Column("precio_costo")]
+    [Column("precio_costo", TypeName = "decimal(10,2)")]
     public decimal PrecioCosto { get; set; } = 0.00m;
 
     // Relación: Un artículo puede tener muchos registros de inventario
