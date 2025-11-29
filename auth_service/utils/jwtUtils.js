@@ -1,49 +1,62 @@
-// jwtUtils.js: Funciones de utilid_usuarioad para la generación y firma de JSON Web Tokens (JWT).
+// jwtUtils.js: Funciones de utilidad para JWT con depuración mejorada.
 
 import jwt from 'jsonwebtoken';
 
-// Obtiene la clave secreta del entorno inyectada por Docker Compose.
-export const JWT_SECRET = process.env.JWT_SECRET; 
-
-// Tiempo de expiración del token de acceso.
-export const ACCESS_TOKEN_EXPIRY = '1h'; // 1 hora de validez_usuario para el token de acceso
-
+// TIEMPO DE EXPIRACIÓN
+export const ACCESS_TOKEN_EXPIRY = '1h'; 
 
 /**
- * Genera un nuevo Access Token (JWT) para un usuario autenticado.
- * @param {object} Usuarios - Objeto de usuario de la base de datos (debe tener id_usuario, nombre_usuario, y id_rol).
- * @returns {string} El JWT firmado y codificado.
+ * Helper para obtener el secreto de forma segura.
+ * Evita problemas de carga asíncrona de dotenv.
  */
-export function generateAccessToken(Usuarios) {
-    if (!JWT_SECRET) {
-        // Fallo crítico: la clave no está configurada.
-        throw new Error('JWT_SECRET not configured. Token generation failed.');
+function getSecret() {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        console.error("❌ ERROR CRÍTICO: JWT_SECRET no está definido en las variables de entorno.");
+        throw new Error('JWT_SECRET not configured.');
     }
-    
-    // El payload contiene las 'claims' del token.
-    const payload = {
-        id_usuario: Usuarios.id_usuario,         // id_usuario único del usuario (esencial)
-        nombre_usuario: Usuarios.nombre_usuario, // Nombre de usuario
-        id_rol: Usuarios.id_rol,     // Rol/Permisos del usuario
-    };
-
-    // jwt.sign() toma el payload, lo firma con la clave secreta y le añade el tiempo de expiración.
-    const token = jwt.sign(
-        payload, 
-        JWT_SECRET, 
-        { expiresIn: ACCESS_TOKEN_EXPIRY }
-    );
-
-    return token;
+    return secret;
 }
 
 /**
- * Verifica si un token es válido y no ha expirado.
+ * Genera un nuevo Access Token.
+ */
+export function generateAccessToken(Usuarios) {
+    const payload = {
+        id_usuario: Usuarios.id_usuario,
+        nombre_usuario: Usuarios.nombre_usuario,
+        id_rol: Usuarios.id_rol,
+    };
+
+    // Usamos getSecret() aquí para asegurar que leemos el valor actual
+    return jwt.sign(payload, getSecret(), { expiresIn: ACCESS_TOKEN_EXPIRY });
+}
+
+/**
+ * Verifica si un token es válido.
  */
 export function verifyToken(token) {
     try {
-        return jwt.verify(token, SECRET_KEY);
+        // Limpiamos el token de posibles espacios en blanco al copiar/pegar
+        const cleanToken = token.trim();
+        
+        return jwt.verify(cleanToken, getSecret());
     } catch (error) {
+        // ESTO ES CLAVE: Imprimimos el error real en la consola del servidor
+        console.error("⚠️ Error al verificar token:", error.message);
+        
+        // Lanzamos el error genérico para el cliente (seguridad)
         throw new Error('Token inválido o expirado');
+    }
+}
+
+/**
+ * Decodifica sin verificar (solo debug).
+ */
+export function decodeToken(token) {
+    try {
+        return jwt.decode(token);
+    } catch (error) {
+        return null;
     }
 }

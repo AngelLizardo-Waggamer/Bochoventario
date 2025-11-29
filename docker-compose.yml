@@ -9,7 +9,7 @@ services:
     container_name: jwt-auth-app
     restart: always
     ports:
-      - "3000:3000"
+      - "5002:5002"
     volumes:
       - ./auth_service:/usr/src/app
       - /usr/src/app/node_modules 

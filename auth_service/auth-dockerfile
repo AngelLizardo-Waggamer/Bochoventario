@@ -14,7 +14,7 @@ RUN npm install
 COPY . .
 
 # Expone el puerto que usará ExpressS
-EXPOSE 3000
+EXPOSE 5002
 
 # Comando para iniciar la aplicación
 CMD [ "npm", "start" ]

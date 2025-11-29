@@ -7,10 +7,9 @@ import pool from '../db.js';
  * Se usa en el endpoint de registro (/auth/register).
  * @param {string} nombre_usuario - Nombre de usuario (debe ser único).
  * @param {string} password_hash - Contraseña ya hasheada (desde passwordUtils).
+ * @param {number} id_rol - El rol asignado al usuario.
  * @returns {Promise<number>} El ID del usuario recién creado.
  */
- // FIX: Definimos un rol por defecto (Ej: 2 = Usuario).
-const ID_ROL_DEFAULT = 2;
 export async function createUser(nombre_usuario, password_hash, id_rol) {
     const query = `
         INSERT INTO Usuarios (nombre_usuario, password_hash, id_rol)
@@ -18,13 +17,10 @@ export async function createUser(nombre_usuario, password_hash, id_rol) {
     `;
     
     try {
-        // Ejecutamos la consulta usando un array [nombre_usuario, password_hash] para evitar inyección SQL.
-        const [result] = await pool.execute(query, [nombre_usuario, password_hash,id_rol]);
-        
-        // 'insertId' es la propiedad que devuelve mysql2/promise con el ID de la nueva fila.
+        // Ejecutamos la consulta usando un array para evitar inyección SQL.
+        const [result] = await pool.execute(query, [nombre_usuario, password_hash, id_rol]);
         return result.insertId; 
     } catch (error) {
-        // Manejo específico del error de duplicidad (código 1062 en MySQL)
         if (error.code === 'ER_DUP_ENTRY') {
             throw new Error('nombre_usuario already exists.');
         }
@@ -40,7 +36,6 @@ export async function createUser(nombre_usuario, password_hash, id_rol) {
  * @returns {Promise<object | null>} Objeto de usuario si se encuentra, o null.
  */
 export async function findBynombre_usuario(nombre_usuario) {
-    // Solo seleccionamos los campos necesarios (el hash es crucial para el login)
     const query = `
         SELECT id_usuario, nombre_usuario, password_hash, id_rol
         FROM Usuarios
@@ -49,16 +44,53 @@ export async function findBynombre_usuario(nombre_usuario) {
     
     try {
         const [rows] = await pool.execute(query, [nombre_usuario]);
-        
-        // Si no hay filas, el usuario no existe.
-        if (rows.length === 0) {
-            return null;
-        }
-
-        // Devolvemos el primer resultado encontrado.
+        if (rows.length === 0) return null;
         return rows[0]; 
     } catch (error) {
         console.error('Error al buscar usuario en DB:', error);
         throw new Error('Database error during user retrieval.');
+    }
+}
+
+/**
+ * Obtiene la lista completa de usuarios (sin las contraseñas).
+ * @returns {Promise<Array>} Lista de usuarios.
+ */
+export async function getAllUsers() {
+    // Excluimos password_hash por seguridad
+    const query = `
+        SELECT id_usuario, nombre_usuario, id_rol, fecha_creacion 
+        FROM Usuarios;
+    `;
+    
+    try {
+        const [rows] = await pool.execute(query);
+        return rows;
+    } catch (error) {
+        console.error('Error al obtener usuarios:', error);
+        throw new Error('Database error during fetching users.');
+    }
+}
+
+/**
+ * Actualiza el rol de un usuario específico.
+ * @param {number} id_usuario - ID del usuario a modificar.
+ * @param {number} new_id_rol - Nuevo ID de rol.
+ * @returns {Promise<boolean>} True si se actualizó, False si el usuario no existe.
+ */
+export async function updateUserRole(id_usuario, new_id_rol) {
+    const query = `
+        UPDATE Usuarios 
+        SET id_rol = ? 
+        WHERE id_usuario = ?;
+    `;
+    
+    try {
+        const [result] = await pool.execute(query, [new_id_rol, id_usuario]);
+        // affectedRows > 0 indica que encontró el usuario y realizó la operación
+        return result.affectedRows > 0;
+    } catch (error) {
+        console.error('Error al actualizar rol:', error);
+        throw new Error('Database error during role update.');
     }
 }
