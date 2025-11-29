@@ -103,11 +103,14 @@ namespace inventory_service.Tests
             _context.SaveChanges();
         }
 
-        private void SetupUserClaims(int userId)
+        private void SetupUserClaims(int userId, int roleId = 1)
         {
+            var username = userId == 1 ? "admin" : userId == 2 ? "gestor" : "lector";
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, userId.ToString())
+                new Claim("id_usuario", userId.ToString()),
+                new Claim("nombre_usuario", username),
+                new Claim("id_rol", roleId.ToString())
             };
             var identity = new ClaimsIdentity(claims, "TestAuthType");
             var claimsPrincipal = new ClaimsPrincipal(identity);
@@ -122,7 +125,7 @@ namespace inventory_service.Tests
         public async Task DeleteProduct_ComoAdministrador_RetornaNoContent()
         {
             // Arrange
-            SetupUserClaims(1); // Usuario Administrador
+            SetupUserClaims(1, 1); // Usuario Administrador
 
             // Act
             var result = await _controller.DeleteProduct(1);
@@ -139,7 +142,7 @@ namespace inventory_service.Tests
         public async Task DeleteProduct_ComoGestor_RetornaNoContent()
         {
             // Arrange
-            SetupUserClaims(2); // Usuario Gestor
+            SetupUserClaims(2, 2); // Usuario Gestor
 
             // Act
             var result = await _controller.DeleteProduct(2);
@@ -180,7 +183,8 @@ namespace inventory_service.Tests
             // Arrange
             var claims = new List<Claim>
             {
-                new Claim("otherClaim", "valor")
+                new Claim("nombre_usuario", "test"),
+                new Claim("id_rol", "1")
             };
             var identity = new ClaimsIdentity(claims, "TestAuthType");
             var claimsPrincipal = new ClaimsPrincipal(identity);
@@ -207,7 +211,7 @@ namespace inventory_service.Tests
         public async Task DeleteProduct_UsuarioRolLector_RetornaUnauthorized()
         {
             // Arrange
-            SetupUserClaims(3); // Usuario Lector
+            SetupUserClaims(3, 3); // Usuario Lector
 
             // Act
             var result = await _controller.DeleteProduct(1);
@@ -238,22 +242,20 @@ namespace inventory_service.Tests
         }
 
         [Fact]
-        public async Task DeleteProduct_UsuarioNoExisteEnBD_RetornaUnauthorized()
+        public async Task DeleteProduct_ConTokenValido_RetornaNoContent()
         {
-            // Arrange
-            SetupUserClaims(999); // Usuario que no existe
+            // Arrange - Usuario con token válido
+            SetupUserClaims(999, 1); // Administrador
 
             // Act
             var result = await _controller.DeleteProduct(1);
 
-            // Assert
-            var unauthorizedResult = Assert.IsType<UnauthorizedObjectResult>(result);
-            dynamic mensaje = unauthorizedResult.Value!;
-            Assert.Contains("Usuario con ID 999 no encontrado", mensaje.message.ToString());
+            // Assert - Debe funcionar porque valida solo el token
+            Assert.IsType<NoContentResult>(result);
             
-            // Verificar que el producto NO fue eliminado
-            var producto = await _context.Articulos.FindAsync(1);
-            Assert.NotNull(producto);
+            // Verificar que el producto fue eliminado
+            var productoEliminado = await _context.Articulos.FindAsync(1);
+            Assert.Null(productoEliminado);
         }
 
         public void Dispose()

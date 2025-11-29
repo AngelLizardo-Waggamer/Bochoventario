@@ -94,20 +94,19 @@ namespace inventory_service.Tests
             return (T)method!.Invoke(_controller, parameters)!;
         }
 
-        private async Task<(bool, Usuario?, string?)> InvokeValidateUserPermissionsAsync()
+        private (bool, int?, string?) InvokeValidateUserPermissions()
         {
             var method = typeof(InventoryController).GetMethod("ValidateUserPermissions", BindingFlags.NonPublic | BindingFlags.Instance);
-            var task = (Task<(bool, Usuario?, string?)>)method!.Invoke(_controller, null)!;
-            return await task;
+            return ((bool, int?, string?))method!.Invoke(_controller, null)!;
         }
 
         [Fact]
-        public void GetUserIdFromToken_ConClaimNameIdentifier_RetornaUserId()
+        public void GetUserIdFromToken_ConClaimIdUsuario_RetornaUserId()
         {
             // Arrange
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, "123")
+                new Claim("id_usuario", "123")
             };
             SetupUserClaims(claims);
 
@@ -117,42 +116,6 @@ namespace inventory_service.Tests
             // Assert
             Assert.NotNull(userId);
             Assert.Equal(123, userId.Value);
-        }
-
-        [Fact]
-        public void GetUserIdFromToken_ConClaimSub_RetornaUserId()
-        {
-            // Arrange
-            var claims = new List<Claim>
-            {
-                new Claim("sub", "456")
-            };
-            SetupUserClaims(claims);
-
-            // Act
-            var userId = InvokePrivateMethod<int?>("GetUserIdFromToken");
-
-            // Assert
-            Assert.NotNull(userId);
-            Assert.Equal(456, userId.Value);
-        }
-
-        [Fact]
-        public void GetUserIdFromToken_ConClaimUserId_RetornaUserId()
-        {
-            // Arrange
-            var claims = new List<Claim>
-            {
-                new Claim("userId", "789")
-            };
-            SetupUserClaims(claims);
-
-            // Act
-            var userId = InvokePrivateMethod<int?>("GetUserIdFromToken");
-
-            // Assert
-            Assert.NotNull(userId);
-            Assert.Equal(789, userId.Value);
         }
 
         [Fact]
@@ -173,105 +136,202 @@ namespace inventory_service.Tests
         }
 
         [Fact]
-        public async Task ValidateUserPermissions_UsuarioAdministrador_RetornaValido()
+        public void GetUsernameFromToken_ConClaimNombreUsuario_RetornaUsername()
         {
             // Arrange
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, "1")
+                new Claim("nombre_usuario", "admin")
             };
             SetupUserClaims(claims);
 
             // Act
-            var (isValid, usuario, errorMessage) = await InvokeValidateUserPermissionsAsync();
+            var username = InvokePrivateMethod<string?>("GetUsernameFromToken");
+
+            // Assert
+            Assert.NotNull(username);
+            Assert.Equal("admin", username);
+        }
+
+        [Fact]
+        public void GetUsernameFromToken_SinClaim_RetornaNull()
+        {
+            // Arrange
+            var claims = new List<Claim>
+            {
+                new Claim("id_usuario", "1")
+            };
+            SetupUserClaims(claims);
+
+            // Act
+            var username = InvokePrivateMethod<string?>("GetUsernameFromToken");
+
+            // Assert
+            Assert.Null(username);
+        }
+
+        [Fact]
+        public void GetRoleIdFromToken_ConClaimIdRol_RetornaRoleId()
+        {
+            // Arrange
+            var claims = new List<Claim>
+            {
+                new Claim("id_rol", "1")
+            };
+            SetupUserClaims(claims);
+
+            // Act
+            var roleId = InvokePrivateMethod<int?>("GetRoleIdFromToken");
+
+            // Assert
+            Assert.NotNull(roleId);
+            Assert.Equal(1, roleId.Value);
+        }
+
+        [Fact]
+        public void GetRoleIdFromToken_SinClaim_RetornaNull()
+        {
+            // Arrange
+            var claims = new List<Claim>
+            {
+                new Claim("id_usuario", "1")
+            };
+            SetupUserClaims(claims);
+
+            // Act
+            var roleId = InvokePrivateMethod<int?>("GetRoleIdFromToken");
+
+            // Assert
+            Assert.Null(roleId);
+        }
+
+        [Fact]
+        public void ValidateUserPermissions_UsuarioAdministrador_RetornaValido()
+        {
+            // Arrange
+            var claims = new List<Claim>
+            {
+                new Claim("id_usuario", "1"),
+                new Claim("nombre_usuario", "admin"),
+                new Claim("id_rol", "1")
+            };
+            SetupUserClaims(claims);
+
+            // Act
+            var (isValid, userId, errorMessage) = InvokeValidateUserPermissions();
 
             // Assert
             Assert.True(isValid);
-            Assert.NotNull(usuario);
-            Assert.Equal(1, usuario.IdRol);
-            Assert.Equal("admin", usuario.NombreUsuario);
+            Assert.NotNull(userId);
+            Assert.Equal(1, userId.Value);
             Assert.Null(errorMessage);
         }
 
         [Fact]
-        public async Task ValidateUserPermissions_UsuarioGestor_RetornaValido()
+        public void ValidateUserPermissions_UsuarioGestor_RetornaValido()
         {
             // Arrange
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, "2")
+                new Claim("id_usuario", "2"),
+                new Claim("nombre_usuario", "gestor"),
+                new Claim("id_rol", "2")
             };
             SetupUserClaims(claims);
 
             // Act
-            var (isValid, usuario, errorMessage) = await InvokeValidateUserPermissionsAsync();
+            var (isValid, userId, errorMessage) = InvokeValidateUserPermissions();
 
             // Assert
             Assert.True(isValid);
-            Assert.NotNull(usuario);
-            Assert.Equal(2, usuario.IdRol);
-            Assert.Equal("gestor", usuario.NombreUsuario);
+            Assert.NotNull(userId);
+            Assert.Equal(2, userId.Value);
             Assert.Null(errorMessage);
         }
 
         [Fact]
-        public async Task ValidateUserPermissions_UsuarioLector_RetornaInvalido()
+        public void ValidateUserPermissions_UsuarioLector_RetornaInvalido()
         {
             // Arrange
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, "3")
+                new Claim("id_usuario", "3"),
+                new Claim("nombre_usuario", "lector"),
+                new Claim("id_rol", "3")
             };
             SetupUserClaims(claims);
 
             // Act
-            var (isValid, usuario, errorMessage) = await InvokeValidateUserPermissionsAsync();
+            var (isValid, userId, errorMessage) = InvokeValidateUserPermissions();
 
             // Assert
             Assert.False(isValid);
-            Assert.Null(usuario);
+            Assert.Null(userId);
             Assert.NotNull(errorMessage);
             Assert.Contains("no tiene permisos suficientes", errorMessage);
         }
 
         [Fact]
-        public async Task ValidateUserPermissions_UsuarioNoExiste_RetornaInvalido()
+        public void ValidateUserPermissions_SinUserId_RetornaInvalido()
         {
             // Arrange
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, "999")
+                new Claim("nombre_usuario", "admin"),
+                new Claim("id_rol", "1")
             };
             SetupUserClaims(claims);
 
             // Act
-            var (isValid, usuario, errorMessage) = await InvokeValidateUserPermissionsAsync();
+            var (isValid, userId, errorMessage) = InvokeValidateUserPermissions();
 
             // Assert
             Assert.False(isValid);
-            Assert.Null(usuario);
+            Assert.Null(userId);
             Assert.NotNull(errorMessage);
-            Assert.Contains("Usuario con ID 999 no encontrado", errorMessage);
+            Assert.Contains("No se pudo obtener el ID del usuario del token JWT", errorMessage);
         }
 
         [Fact]
-        public async Task ValidateUserPermissions_SinUserId_RetornaInvalido()
+        public void ValidateUserPermissions_SinUsername_RetornaInvalido()
         {
             // Arrange
             var claims = new List<Claim>
             {
-                new Claim("otherClaim", "value")
+                new Claim("id_usuario", "1"),
+                new Claim("id_rol", "1")
             };
             SetupUserClaims(claims);
 
             // Act
-            var (isValid, usuario, errorMessage) = await InvokeValidateUserPermissionsAsync();
+            var (isValid, userId, errorMessage) = InvokeValidateUserPermissions();
 
             // Assert
             Assert.False(isValid);
-            Assert.Null(usuario);
+            Assert.Null(userId);
             Assert.NotNull(errorMessage);
-            Assert.Contains("No se pudo obtener el ID del usuario del token JWT", errorMessage);
+            Assert.Contains("No se pudo obtener el nombre de usuario del token JWT", errorMessage);
+        }
+
+        [Fact]
+        public void ValidateUserPermissions_SinRoleId_RetornaInvalido()
+        {
+            // Arrange
+            var claims = new List<Claim>
+            {
+                new Claim("id_usuario", "1"),
+                new Claim("nombre_usuario", "admin")
+            };
+            SetupUserClaims(claims);
+
+            // Act
+            var (isValid, userId, errorMessage) = InvokeValidateUserPermissions();
+
+            // Assert
+            Assert.False(isValid);
+            Assert.Null(userId);
+            Assert.NotNull(errorMessage);
+            Assert.Contains("No se pudo obtener el rol del usuario del token JWT", errorMessage);
         }
 
         public void Dispose()

@@ -85,11 +85,14 @@ namespace inventory_service.Tests
             _context.SaveChanges();
         }
 
-        private void SetupUserClaims(int userId)
+        private void SetupUserClaims(int userId, int roleId = 1)
         {
+            var username = userId == 1 ? "admin" : userId == 2 ? "gestor" : "lector";
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, userId.ToString())
+                new Claim("id_usuario", userId.ToString()),
+                new Claim("nombre_usuario", username),
+                new Claim("id_rol", roleId.ToString())
             };
             var identity = new ClaimsIdentity(claims, "TestAuthType");
             var claimsPrincipal = new ClaimsPrincipal(identity);
@@ -104,7 +107,7 @@ namespace inventory_service.Tests
         public async Task CreateProduct_ComoAdministrador_RetornaCreated()
         {
             // Arrange
-            SetupUserClaims(1); // Usuario Administrador
+            SetupUserClaims(1, 1); // Usuario Administrador (id_rol = 1)
             var request = new CreateProductRequest
             {
                 Articulo = new Articulo
@@ -131,7 +134,7 @@ namespace inventory_service.Tests
         public async Task CreateProduct_ComoGestor_RetornaCreated()
         {
             // Arrange
-            SetupUserClaims(2); // Usuario Gestor
+            SetupUserClaims(2, 2); // Usuario Gestor (id_rol = 2)
             var request = new CreateProductRequest
             {
                 Articulo = new Articulo
@@ -185,10 +188,11 @@ namespace inventory_service.Tests
         [Fact]
         public async Task CreateProduct_UsuarioSinTokenValido_RetornaUnauthorized()
         {
-            // Arrange - Configurar claim sin userId válido
+            // Arrange - Configurar claims sin id_usuario válido
             var claims = new List<Claim>
             {
-                new Claim("otherClaim", "valor")
+                new Claim("nombre_usuario", "test"),
+                new Claim("id_rol", "1")
             };
             var identity = new ClaimsIdentity(claims, "TestAuthType");
             var claimsPrincipal = new ClaimsPrincipal(identity);
@@ -222,7 +226,7 @@ namespace inventory_service.Tests
         public async Task CreateProduct_UsuarioRolLector_RetornaUnauthorized()
         {
             // Arrange
-            SetupUserClaims(3); // Usuario Lector
+            SetupUserClaims(3, 3); // Usuario Lector (id_rol = 3)
             var request = new CreateProductRequest
             {
                 Articulo = new Articulo
@@ -269,10 +273,10 @@ namespace inventory_service.Tests
         }
 
         [Fact]
-        public async Task CreateProduct_UsuarioNoExisteEnBD_RetornaUnauthorized()
+        public async Task CreateProduct_ConTokenValido_RetornaCreated()
         {
-            // Arrange
-            SetupUserClaims(999); // Usuario que no existe en la BD
+            // Arrange - Usuario que no existe en BD pero tiene token válido
+            SetupUserClaims(999, 1); // Administrador
             var request = new CreateProductRequest
             {
                 Articulo = new Articulo
@@ -287,10 +291,10 @@ namespace inventory_service.Tests
             // Act
             var result = await _controller.CreateProduct(request);
 
-            // Assert
-            var unauthorizedResult = Assert.IsType<UnauthorizedObjectResult>(result.Result);
-            dynamic mensaje = unauthorizedResult.Value!;
-            Assert.Contains("Usuario con ID 999 no encontrado", mensaje.message.ToString());
+            // Assert - Ahora debe funcionar porque valida solo el token, no la BD
+            var createdResult = Assert.IsType<CreatedAtActionResult>(result.Result);
+            var producto = Assert.IsType<Articulo>(createdResult.Value);
+            Assert.Equal("SKU-NUEVO-006", producto.Sku);
         }
 
         public void Dispose()

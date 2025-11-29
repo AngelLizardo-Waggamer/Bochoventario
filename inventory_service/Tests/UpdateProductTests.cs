@@ -118,11 +118,14 @@ namespace inventory_service.Tests
             _context.SaveChanges();
         }
 
-        private void SetupUserClaims(int userId)
+        private void SetupUserClaims(int userId, int roleId = 1)
         {
+            var username = userId == 1 ? "admin" : userId == 2 ? "gestor" : "lector";
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, userId.ToString())
+                new Claim("id_usuario", userId.ToString()),
+                new Claim("nombre_usuario", username),
+                new Claim("id_rol", roleId.ToString())
             };
             var identity = new ClaimsIdentity(claims, "TestAuthType");
             var claimsPrincipal = new ClaimsPrincipal(identity);
@@ -137,7 +140,7 @@ namespace inventory_service.Tests
         public async Task UpdateProduct_ComoAdministrador_RetornaNoContent()
         {
             // Arrange
-            SetupUserClaims(1); // Usuario Administrador
+            SetupUserClaims(1, 1); // Usuario Administrador
             var request = new UpdateProductRequest
             {
                 Articulo = new Articulo
@@ -168,7 +171,7 @@ namespace inventory_service.Tests
         public async Task UpdateProduct_ComoGestor_ActualizaInventarios()
         {
             // Arrange
-            SetupUserClaims(2); // Usuario Gestor
+            SetupUserClaims(2, 2); // Usuario Gestor
             var fechaAntes = DateTime.Now.AddDays(-1);
             var request = new UpdateProductRequest
             {
@@ -259,7 +262,8 @@ namespace inventory_service.Tests
             // Arrange
             var claims = new List<Claim>
             {
-                new Claim("otherClaim", "valor")
+                new Claim("nombre_usuario", "test"),
+                new Claim("id_rol", "1")
             };
             var identity = new ClaimsIdentity(claims, "TestAuthType");
             var claimsPrincipal = new ClaimsPrincipal(identity);
@@ -294,7 +298,7 @@ namespace inventory_service.Tests
         public async Task UpdateProduct_UsuarioRolLector_RetornaUnauthorized()
         {
             // Arrange
-            SetupUserClaims(3); // Usuario Lector
+            SetupUserClaims(3, 3); // Usuario Lector
             var request = new UpdateProductRequest
             {
                 Articulo = new Articulo
@@ -369,29 +373,27 @@ namespace inventory_service.Tests
         }
 
         [Fact]
-        public async Task UpdateProduct_UsuarioNoExisteEnBD_RetornaUnauthorized()
+        public async Task UpdateProduct_ConTokenValido_RetornaNoContent()
         {
-            // Arrange
-            SetupUserClaims(999); // Usuario que no existe
+            // Arrange - Usuario con token válido (ya no se valida contra BD)
+            SetupUserClaims(999, 1); // Administrador
             var request = new UpdateProductRequest
             {
                 Articulo = new Articulo
                 {
                     IdArticulo = 1,
-                    Sku = "SKU-001",
-                    Nombre = "Laptop",
-                    Descripcion = "Descripcion",
-                    PrecioCosto = 15000.00m
+                    Sku = "SKU-001-NUEVO",
+                    Nombre = "Laptop Actualizada",
+                    Descripcion = "Descripcion actualizada",
+                    PrecioCosto = 17000.00m
                 }
             };
 
             // Act
             var result = await _controller.UpdateProduct(1, request);
 
-            // Assert
-            var unauthorizedResult = Assert.IsType<UnauthorizedObjectResult>(result);
-            dynamic mensaje = unauthorizedResult.Value!;
-            Assert.Contains("Usuario con ID 999 no encontrado", mensaje.message.ToString());
+            // Assert - Debe funcionar porque valida solo el token
+            Assert.IsType<NoContentResult>(result);
         }
 
         public void Dispose()
