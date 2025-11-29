@@ -1,8 +1,8 @@
 -- Creación de la base de datos (si no existe)
-CREATE DATABASE IF NOT EXISTS `InventarioNormalizadoDB`;
+CREATE DATABASE IF NOT EXISTS `Bochoventario`;
 
 -- Seleccionar la base de datos para usar
-USE `InventarioNormalizadoDB`;
+USE `Bochoventario`;
 
 -- ---
 -- 1. Tabla de Roles (Estandarización)
