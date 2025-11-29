@@ -6,18 +6,20 @@ import pool from '../db.js';
  * Inserta un nuevo usuario en la base de datos con una contraseña hasheada.
  * Se usa en el endpoint de registro (/auth/register).
  * @param {string} nombre_usuario - Nombre de usuario (debe ser único).
- * @param {string} passwordHash - Contraseña ya hasheada (desde passwordUtils).
+ * @param {string} password_hash - Contraseña ya hasheada (desde passwordUtils).
  * @returns {Promise<number>} El ID del usuario recién creado.
  */
-export async function createUser(nombre_usuario, password_hash) {
+ // FIX: Definimos un rol por defecto (Ej: 2 = Usuario).
+const ID_ROL_DEFAULT = 2;
+export async function createUser(nombre_usuario, password_hash, id_rol) {
     const query = `
-        INSERT INTO users (nombre_usuario, password_hash)
-        VALUES (?, ?);
+        INSERT INTO Usuarios (nombre_usuario, password_hash, id_rol)
+        VALUES (?, ?, ?);
     `;
     
     try {
-        // Ejecutamos la consulta usando un array [nombre_usuario, passwordHash] para evitar inyección SQL.
-        const [result] = await pool.execute(query, [nombre_usuario, password_hash]);
+        // Ejecutamos la consulta usando un array [nombre_usuario, password_hash] para evitar inyección SQL.
+        const [result] = await pool.execute(query, [nombre_usuario, password_hash,id_rol]);
         
         // 'insertId' es la propiedad que devuelve mysql2/promise con el ID de la nueva fila.
         return result.insertId; 

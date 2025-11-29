@@ -1,4 +1,4 @@
-// jwtUtils.js: Funciones de utilidad para la generación y firma de JSON Web Tokens (JWT).
+// jwtUtils.js: Funciones de utilid_usuarioad para la generación y firma de JSON Web Tokens (JWT).
 
 import jwt from 'jsonwebtoken';
 
@@ -6,15 +6,15 @@ import jwt from 'jsonwebtoken';
 export const JWT_SECRET = process.env.JWT_SECRET; 
 
 // Tiempo de expiración del token de acceso.
-export const ACCESS_TOKEN_EXPIRY = '1h'; // 1 hora de validez para el token de acceso
+export const ACCESS_TOKEN_EXPIRY = '1h'; // 1 hora de validez_usuario para el token de acceso
 
 
 /**
  * Genera un nuevo Access Token (JWT) para un usuario autenticado.
- * @param {object} user - Objeto de usuario obtenido de la base de datos (debe tener id, username, y role).
+ * @param {object} Usuarios - Objeto de usuario de la base de datos (debe tener id_usuario, nombre_usuario, y id_rol).
  * @returns {string} El JWT firmado y codificado.
  */
-export function generateAccessToken(user) {
+export function generateAccessToken(Usuarios) {
     if (!JWT_SECRET) {
         // Fallo crítico: la clave no está configurada.
         throw new Error('JWT_SECRET not configured. Token generation failed.');
@@ -22,9 +22,9 @@ export function generateAccessToken(user) {
     
     // El payload contiene las 'claims' del token.
     const payload = {
-        id: user.id,         // ID único del usuario (esencial)
-        username: user.username, // Nombre de usuario
-        role: user.role,     // Rol/Permisos del usuario
+        id_usuario: Usuarios.id_usuario,         // id_usuario único del usuario (esencial)
+        nombre_usuario: Usuarios.nombre_usuario, // Nombre de usuario
+        id_rol: Usuarios.id_rol,     // Rol/Permisos del usuario
     };
 
     // jwt.sign() toma el payload, lo firma con la clave secreta y le añade el tiempo de expiración.
@@ -37,7 +37,13 @@ export function generateAccessToken(user) {
     return token;
 }
 
-// -----------------------------------------------------------
-// NOTA: La función verifyToken() se usaría en un Middleware en los microservicios
-// de consumo (ej. inventory_service) para validar el token que envíe el cliente.
-// -----------------------------------------------------------S
+/**
+ * Verifica si un token es válido y no ha expirado.
+ */
+export function verifyToken(token) {
+    try {
+        return jwt.verify(token, SECRET_KEY);
+    } catch (error) {
+        throw new Error('Token inválido o expirado');
+    }
+}

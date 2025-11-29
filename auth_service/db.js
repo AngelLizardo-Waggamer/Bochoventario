@@ -1,23 +1,32 @@
-// db.js: Configuración del Pool de Conexiones a la base de datos MySQL.
-// Este módulo solo se encarga de establecer la conexión, sin inicializar tablas.
-
 import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
 
-// Configuración obtenida de las variables de entorno inyectadas por Docker Compose
-// Los valores predeterminados (ej. 'localhost') solo se usan si las variables de entorno no están definidas.
-const config = {
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'user',
-    password: process.env.DB_PASSWORD || 'bochovpword_?',
-    database: process.env.DB_NAME || 'authdb',
-    // Opciones del Pool:
-    waitForConnections: true,
-    connectionLimit: 10, // Número máximo de conexiones simultáneas
-    queueLimit: 0        // Cola infinita para peticiones
-};
+// Cargar las variables del archivo .env
+dotenv.config();
 
-// Crear y exportar el Pool de Conexiones para usarlo en 'userModel.js'
-const pool = mysql.createPool(config);
+// Crear la pool de conexiones
+const pool = mysql.createPool({
+    host: process.env.DB_HOST, 
+    user: process.env.DB_USER, 
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    
+    // Configuraciones recomendada para la Pool
+    waitForConnections: true, // Si todas las conexiones están usadas, espera a que se libere una
+    connectionLimit: 10,      // Número máximo de conexiones simultáneas
+    queueLimit: 0,            // 0 significa que no hay límite de peticiones en cola
+    enableKeepAlive: true,    // Mantiene las conexiones abiertas para evitar el overhead de reconexión
+    keepAliveInitialDelay: 0,
+});
 
-// Exportar el pool de conexiones para usarlo en el resto de la aplicación
+// (Opcional) Verificar la conexión inicial para debug
+pool.getConnection()
+    .then(connection => {
+        pool.releaseConnection(connection);
+        console.log('✅ Base de datos conectada exitosamente a:', process.env.DB_NAME);
+    })
+    .catch(err => {
+        console.error('❌ Error al conectar a la base de datos:', err.message);
+    });
+
 export default pool;
