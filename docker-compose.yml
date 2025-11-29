@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # 🌐 1. Microservicio de Autenticación (Node.js/Express)
+  auth-app:
+    # Construcción referenciando la subcarpeta auth_service y el Dockerfile específico
+    build: 
+      context: ./auth_service
+      dockerfile: auth-dockerfile
+    container_name: jwt-auth-app
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      # Montaje para desarrollo: sincroniza el código local con el WORKDIR del contenedor
+      - ./auth_service:/usr/src/app
+      - /usr/src/app/node_modules 
+    environment:
+      # Credenciales de la aplicación para conectar al servicio 'db'
+      DB_HOST: db
+      DB_USER: user
+      DB_PASSWORD: bochovpword_?
+      DB_NAME: authdb
+      # Clave para la firma de los tokens JWT
+      JWT_SECRET: "JWT_BOCHOVKEY_?" 
+    depends_on:
+      db:
+        # 🛡️ Solo se inicia cuando MySQL reporta que está "healthy" (listo para aceptar conexiones)
+        condition: service_healthy 
+
+  # 🐘 2. Servicio de MySQL (Base de Datos)
+  db:
+    # Imagen oficial de MySQL en su versión 8.4
+    image: mysql:8.4 
+    container_name: auth-mysql-db
+    restart: always
+    environment:
+      # Credenciales de configuración de MySQL (los valores deben coincidir con 'auth-app')
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: InventarioNormalizadoDB
+      MYSQL_USER: user
+      MYSQL_PASSWORD: bochovpword_?
+    ports:
+      - "3306:3306"
+    volumes:
+      # Persistencia de datos
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      # 🩺 AJUSTE: Permite 30s de gracia para que MySQL inicie
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      interval: 5s # Frecuencia de chequeo
+      timeout: 5s
+      retries: 6 # Número de reintentos
+      start_period: 30s # <--- TIEMPO ADICIONAL PARA LA INICIALIZACIÓN
+
+# 💾 3. Volúmenes
+volumes:
+  mysql-data: {}
