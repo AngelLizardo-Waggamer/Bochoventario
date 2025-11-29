@@ -18,7 +18,7 @@ namespace inventory_service.Controllers
         public required Articulo Articulo { get; set; }
     }
 
-    [Route("api/products")]
+    [Route("api/inventory")]
     [ApiController]
     public class InventoryController : ControllerBase
     {
