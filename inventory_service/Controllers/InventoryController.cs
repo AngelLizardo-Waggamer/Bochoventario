@@ -32,7 +32,7 @@ namespace inventory_service.Controllers
         // Método helper para obtener el ID del usuario desde el token JWT
         private int? GetUserIdFromToken()
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub") ?? User.FindFirst("userId");
+            var userIdClaim = User.FindFirst("id_usuario");
             if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
             {
                 return userId;
@@ -40,8 +40,26 @@ namespace inventory_service.Controllers
             return null;
         }
 
+        // Método helper para obtener el nombre de usuario desde el token JWT
+        private string? GetUsernameFromToken()
+        {
+            var usernameClaim = User.FindFirst("nombre_usuario");
+            return usernameClaim?.Value;
+        }
+
+        // Método helper para obtener el ID del rol del usuario desde el token JWT
+        private int? GetRoleIdFromToken()
+        {
+            var roleIdClaim = User.FindFirst("id_rol");
+            if (roleIdClaim != null && int.TryParse(roleIdClaim.Value, out int roleId))
+            {
+                return roleId;
+            }
+            return null;
+        }
+
         // Método helper para validar permisos del usuario autenticado
-        private async Task<(bool isValid, Usuario? usuario, string? errorMessage)> ValidateUserPermissions()
+        private (bool isValid, int? userId, string? errorMessage) ValidateUserPermissions()
         {
             var userId = GetUserIdFromToken();
             if (userId == null)
@@ -49,22 +67,25 @@ namespace inventory_service.Controllers
                 return (false, null, "No se pudo obtener el ID del usuario del token JWT");
             }
 
-            var usuario = await _context.Usuarios
-                .Include(u => u.Rol)
-                .FirstOrDefaultAsync(u => u.IdUsuario == userId.Value);
-
-            if (usuario == null)
+            var username = GetUsernameFromToken();
+            if (string.IsNullOrEmpty(username))
             {
-                return (false, null, $"Usuario con ID {userId} no encontrado");
+                return (false, null, "No se pudo obtener el nombre de usuario del token JWT");
+            }
+
+            var roleId = GetRoleIdFromToken();
+            if (roleId == null)
+            {
+                return (false, null, "No se pudo obtener el rol del usuario del token JWT");
             }
 
             // Validar que el rol sea Administrador (1) o Gestor (2)
-            if (usuario.IdRol != 1 && usuario.IdRol != 2)
+            if (roleId.Value != 1 && roleId.Value != 2)
             {
-                return (false, null, $"El usuario '{usuario.NombreUsuario}' no tiene permisos suficientes. Se requiere rol de Administrador o Gestor.");
+                return (false, null, $"El usuario '{username}' no tiene permisos suficientes. Se requiere rol de Administrador o Gestor.");
             }
 
-            return (true, usuario, null);
+            return (true, userId, null);
         }
 
         // GET /api/products → lista con filtros ?q=&category=
@@ -117,7 +138,7 @@ namespace inventory_service.Controllers
         public async Task<ActionResult<Articulo>> CreateProduct([FromBody] CreateProductRequest request)
         {
             // Validar permisos del usuario desde el token JWT
-            var (isValid, usuario, errorMessage) = await ValidateUserPermissions();
+            var (isValid, userId, errorMessage) = ValidateUserPermissions();
             if (!isValid)
             {
                 return Unauthorized(new { message = errorMessage });
@@ -146,7 +167,7 @@ namespace inventory_service.Controllers
             }
 
             // Validar permisos del usuario desde el token JWT
-            var (isValid, usuario, errorMessage) = await ValidateUserPermissions();
+            var (isValid, userId, errorMessage) = ValidateUserPermissions();
             if (!isValid)
             {
                 return Unauthorized(new { message = errorMessage });
@@ -178,7 +199,7 @@ namespace inventory_service.Controllers
             foreach (var inventario in inventarios)
             {
                 inventario.UltimaActualizacion = DateTime.Now;
-                inventario.UltimaModificacionPor = usuario!.IdUsuario;
+                inventario.UltimaModificacionPor = userId!.Value;
             }
 
             try
@@ -203,7 +224,7 @@ namespace inventory_service.Controllers
         public async Task<IActionResult> DeleteProduct(int id)
         {
             // Validar permisos del usuario desde el token JWT
-            var (isValid, usuario, errorMessage) = await ValidateUserPermissions();
+            var (isValid, userId, errorMessage) = ValidateUserPermissions();
             if (!isValid)
             {
                 return Unauthorized(new { message = errorMessage });
