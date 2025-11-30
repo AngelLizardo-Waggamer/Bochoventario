@@ -14,16 +14,19 @@ function Register() {
         alert("Las contraseñas no coinciden");
         return;
     }
-    console.log("Registrando usuario:", email);
-    // AQUÍ IRÁ LA CONEXIÓN PARA CREAR USUARIO
+    // Aquí iría la conexión al backend
     navigate('/login');
   };
 
   return (
-    <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '80vh' }}>
-      <Card style={{ width: '400px' }} className="shadow">
-        <Card.Body>
-          <h2 className="text-center mb-4">Crear cuenta</h2>
+    <Container 
+      fluid 
+      className="d-flex justify-content-center align-items-center bg-light" 
+      style={{ minHeight: '100vh' }}
+    >
+      <Card style={{ width: '400px' }} className="shadow border-0">
+        <Card.Body className="p-5">
+          <h2 className="text-center mb-4 fw-bold">Crear cuenta</h2>
           
           <Form onSubmit={handleSubmit}>
             <Form.Group className="mb-3">
@@ -34,6 +37,7 @@ function Register() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="py-2"
               />
             </Form.Group>
 
@@ -45,10 +49,11 @@ function Register() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="py-2"
               />
             </Form.Group>
 
-            <Form.Group className="mb-3">
+            <Form.Group className="mb-4">
               <Form.Label>Confirmar contraseña</Form.Label>
               <Form.Control 
                 type="password" 
@@ -56,16 +61,17 @@ function Register() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
+                className="py-2"
               />
             </Form.Group>
 
-            <Button className="w-100" type="submit" variant="success">
+            <Button className="w-100 py-2 fw-bold" type="submit" variant="success">
               Registrarse
             </Button>
           </Form>
 
-          <div className="w-100 text-center mt-3">
-            ¿Ya tienes cuenta? <Link to="/login">Inicia sesión</Link>
+          <div className="w-100 text-center mt-4">
+            ¿Ya tienes cuenta? <Link to="/login" className="text-decoration-none">Inicia sesión</Link>
           </div>
         </Card.Body>
       </Card>

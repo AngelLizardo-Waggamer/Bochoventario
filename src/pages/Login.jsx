@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Form, Button, Card, Container, Alert } from 'react-bootstrap';
+import { Form, Button, Card, Container } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 
 function Login() {
@@ -10,17 +10,18 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log("Intentando loguear con:", email, password);
-    
-    // AQUÍ IRÁ LA CONEXIÓN CON EL MICROSERVICIO DE ANGEL/FUBAL
-
     navigate('/inventory'); 
   };
 
   return (
-    <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '80vh' }}>
-      <Card style={{ width: '400px' }} className="shadow">
-        <Card.Body>
-          <h2 className="text-center mb-4">Iniciar sesión</h2>
+    <Container 
+      fluid 
+      className="d-flex justify-content-center align-items-center bg-light" 
+      style={{ minHeight: '100vh' }}
+    >
+      <Card style={{ width: '400px' }} className="shadow border-0">
+        <Card.Body className="p-5">
+          <h2 className="text-center mb-4 fw-bold">Iniciar sesión</h2>
           <h5 className="text-center text-muted mb-4">El Bochoventario</h5>
           
           <Form onSubmit={handleSubmit}>
@@ -32,10 +33,11 @@ function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="py-2"
               />
             </Form.Group>
 
-            <Form.Group className="mb-3">
+            <Form.Group className="mb-4">
               <Form.Label>Contraseña</Form.Label>
               <Form.Control 
                 type="password" 
@@ -43,16 +45,17 @@ function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="py-2"
               />
             </Form.Group>
 
-            <Button className="w-100" type="submit" variant="primary">
+            <Button className="w-100 py-2 fw-bold" type="submit" variant="primary">
               Entrar
             </Button>
           </Form>
 
-          <div className="w-100 text-center mt-3">
-            ¿No tienes cuenta? <Link to="/register">Regístrate aquí</Link>
+          <div className="w-100 text-center mt-4">
+            ¿No tienes cuenta? <Link to="/register" className="text-decoration-none">Regístrate aquí</Link>
           </div>
         </Card.Body>
       </Card>
