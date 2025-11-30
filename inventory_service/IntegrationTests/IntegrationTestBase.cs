@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.MySql;
 using Xunit;
 using inventory_service.Controllers;
 using inventory_service.Data;
@@ -15,121 +14,45 @@ using inventory_service.Models;
 namespace inventory_service.IntegrationTests
 {
     /// <summary>
-    /// Clase base para tests de integración que levanta un contenedor MySQL real
-    /// con el schema de producción y proporciona métodos helper comunes.
+    /// Clase base para tests de integración que usa un DatabaseFixture compartido.
+    /// Esto mejora drásticamente el rendimiento al reutilizar el mismo contenedor MySQL
+    /// entre todos los tests en lugar de crear uno nuevo por cada archivo de test.
     /// </summary>
+    [Collection("Database collection")]
     public abstract class IntegrationTestBase : IAsyncLifetime
     {
-        protected MySqlContainer _mySqlContainer = null!;
+        protected readonly DatabaseFixture _fixture;
         protected AppDbContext _context = null!;
         protected InventoryController _controller = null!;
 
+        protected IntegrationTestBase(DatabaseFixture fixture)
+        {
+            _fixture = fixture;
+        }
+
         public async Task InitializeAsync()
         {
-            // Configurar y levantar el contenedor MySQL con la misma versión de producción
-            _mySqlContainer = new MySqlBuilder()
-                .WithImage("mysql:8.4")
-                .WithDatabase("Bochoventario")
-                .WithUsername("test_user")
-                .WithPassword("test_password")
-                .Build();
+            // Crear un nuevo contexto para este test específico
+            _context = _fixture.CreateContext();
 
-            await _mySqlContainer.StartAsync();
-
-            // Configurar DbContext con la conexión al contenedor
-            var connectionString = _mySqlContainer.GetConnectionString();
-            var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
-                .Options;
-
-            _context = new AppDbContext(options);
-
-            // Aplicar el schema SQL de producción
-            await ApplyDatabaseSchema();
-
-            // Seed data inicial para los tests
+            // Limpiar y seedear datos para este test
+            await CleanDatabase();
             await SeedDatabase();
 
             // Crear el controlador
             _controller = new InventoryController(_context);
         }
 
-        private async Task ApplyDatabaseSchema()
+        /// <summary>
+        /// Limpia las tablas de la base de datos para aislar cada test.
+        /// Mantiene los roles que son datos de referencia estáticos.
+        /// </summary>
+        private async Task CleanDatabase()
         {
-            // Buscar el archivo schema.sql en múltiples ubicaciones posibles
-            var possiblePaths = new[]
-            {
-                // 1. Directorio actual (bin/Debug/net8.0 cuando se ejecutan tests)
-                Path.Combine(Directory.GetCurrentDirectory(), "schema.sql"),
-                // 2. Directorio raíz del proyecto (3 niveles arriba de bin/Debug/net8.0)
-                Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "schema.sql"),
-                // 3. Directorio padre del ejecutable
-                Path.Combine(AppContext.BaseDirectory, "schema.sql"),
-                // 4. Tres niveles arriba del ejecutable
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "schema.sql")
-            };
-
-            string? schemaPath = null;
-            foreach (var path in possiblePaths)
-            {
-                var normalizedPath = Path.GetFullPath(path);
-                if (File.Exists(normalizedPath))
-                {
-                    schemaPath = normalizedPath;
-                    break;
-                }
-            }
-
-            if (schemaPath == null)
-            {
-                var searchedPaths = string.Join("\n  - ", possiblePaths.Select(Path.GetFullPath));
-                throw new FileNotFoundException(
-                    $"No se encontró el archivo schema.sql en ninguna de estas ubicaciones:\n  - {searchedPaths}");
-            }
-
-            var schema = await File.ReadAllTextAsync(schemaPath);
-            
-            // Limpiar comentarios de una línea (--) y multi-línea (/* */)
-            var cleanedSchema = System.Text.RegularExpressions.Regex.Replace(
-                schema, 
-                @"--[^\r\n]*|/\*[\s\S]*?\*/", 
-                string.Empty, 
-                System.Text.RegularExpressions.RegexOptions.Multiline
-            );
-            
-            // Dividir por comandos individuales (separados por ;)
-            var commands = cleanedSchema.Split(new[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
-            
-            int executedCount = 0;
-            
-            foreach (var command in commands)
-            {
-                var trimmedCommand = command.Trim();
-                
-                // Filtrar comandos que no necesitamos ejecutar o que causan problemas
-                if (string.IsNullOrWhiteSpace(trimmedCommand) ||
-                    trimmedCommand.StartsWith("CREATE DATABASE", StringComparison.OrdinalIgnoreCase) ||
-                    trimmedCommand.StartsWith("USE ", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-                
-                try
-                {
-                    await _context.Database.ExecuteSqlRawAsync(trimmedCommand);
-                    executedCount++;
-                }
-                catch (Exception ex)
-                {
-                    // Ignorar errores comunes que no afectan la funcionalidad
-                    if (!ex.Message.Contains("database exists") && 
-                        !ex.Message.Contains("already exists"))
-                    {
-                        Console.WriteLine($"❌ Error ejecutando comando SQL: {ex.Message}");
-                        throw; // Re-lanzar para que el test falle si es un error crítico
-                    }
-                }
-            }
+            // Usar DELETE en lugar de TRUNCATE debido a foreign keys
+            await _context.Database.ExecuteSqlRawAsync("DELETE FROM Inventario");
+            await _context.Database.ExecuteSqlRawAsync("DELETE FROM Articulos");
+            await _context.Database.ExecuteSqlRawAsync("DELETE FROM Usuarios");
         }
 
         protected virtual async Task SeedDatabase()
@@ -225,8 +148,8 @@ namespace inventory_service.IntegrationTests
 
         public async Task DisposeAsync()
         {
+            // Solo limpiar el contexto, NO el contenedor (que es compartido)
             await _context.DisposeAsync();
-            await _mySqlContainer.DisposeAsync();
         }
     }
 }

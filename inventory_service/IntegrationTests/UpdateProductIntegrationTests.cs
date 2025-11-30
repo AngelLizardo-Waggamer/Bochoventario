@@ -13,6 +13,8 @@ namespace inventory_service.IntegrationTests
     /// </summary>
     public class UpdateProductIntegrationTests : IntegrationTestBase
     {
+        public UpdateProductIntegrationTests(DatabaseFixture fixture) : base(fixture) { }
+
         [Fact]
         public async Task UpdateProduct_ComoAdministrador_ActualizaEnBaseDeDatos()
         {

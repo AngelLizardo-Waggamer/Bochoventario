@@ -12,6 +12,8 @@ namespace inventory_service.IntegrationTests
     /// </summary>
     public class GetProductIntegrationTests : IntegrationTestBase
     {
+        public GetProductIntegrationTests(DatabaseFixture fixture) : base(fixture) { }
+
         [Fact]
         public async Task GetProduct_ProductoExistente_RetornaProductoDeLaBaseDeDatos()
         {

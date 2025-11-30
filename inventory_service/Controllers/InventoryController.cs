@@ -18,6 +18,24 @@ namespace inventory_service.Controllers
         public required Articulo Articulo { get; set; }
     }
 
+    // DTOs para gestión de inventario
+    public class CreateInventoryRequest
+    {
+        public int IdArticulo { get; set; }
+        public int Cantidad { get; set; }
+        public required string Ubicacion { get; set; }
+    }
+
+    public class UpdateInventoryRequest
+    {
+        public int Cantidad { get; set; }
+    }
+
+    public class AdjustInventoryRequest
+    {
+        public int Ajuste { get; set; } // Positivo para entrada, negativo para salida
+    }
+
     [Route("api/inventory")]
     [ApiController]
     public class InventoryController : ControllerBase
@@ -237,6 +255,179 @@ namespace inventory_service.Controllers
             }
 
             _context.Articulos.Remove(articulo);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        // === ENDPOINTS PARA GESTIÓN DE INVENTARIO ===
+
+        // GET /api/inventory/stock/{idArticulo} → obtener inventario por artículo
+        [HttpGet("stock/{idArticulo}")]
+        public async Task<ActionResult<IEnumerable<Inventario>>> GetInventoryByProduct(int idArticulo)
+        {
+            var articulo = await _context.Articulos.FindAsync(idArticulo);
+            if (articulo == null)
+            {
+                return NotFound(new { message = $"Producto con ID {idArticulo} no encontrado" });
+            }
+
+            var inventarios = await _context.Inventarios
+                .Include(i => i.UsuarioModificador)
+                .Where(i => i.IdArticulo == idArticulo)
+                .ToListAsync();
+
+            return Ok(inventarios);
+        }
+
+        // GET /api/inventory/stock/location/{ubicacion} → obtener inventario por ubicación
+        [HttpGet("stock/location/{ubicacion}")]
+        public async Task<ActionResult<IEnumerable<Inventario>>> GetInventoryByLocation(string ubicacion)
+        {
+            var inventarios = await _context.Inventarios
+                .Include(i => i.Articulo)
+                .Include(i => i.UsuarioModificador)
+                .Where(i => i.Ubicacion == ubicacion)
+                .ToListAsync();
+
+            return Ok(inventarios);
+        }
+
+        // GET /api/inventory/stock → listar todo el inventario
+        [HttpGet("stock")]
+        public async Task<ActionResult<IEnumerable<Inventario>>> GetAllInventory()
+        {
+            var inventarios = await _context.Inventarios
+                .Include(i => i.Articulo)
+                .Include(i => i.UsuarioModificador)
+                .ToListAsync();
+
+            return Ok(inventarios);
+        }
+
+        // POST /api/inventory/stock → crear registro de inventario
+        [HttpPost("stock")]
+        [Authorize]
+        public async Task<ActionResult<Inventario>> CreateInventory([FromBody] CreateInventoryRequest request)
+        {
+            // Validar permisos del usuario desde el token JWT
+            var (isValid, userId, errorMessage) = ValidateUserPermissions();
+            if (!isValid)
+            {
+                return Unauthorized(new { message = errorMessage });
+            }
+
+            // Validar que el artículo exista
+            var articulo = await _context.Articulos.FindAsync(request.IdArticulo);
+            if (articulo == null)
+            {
+                return NotFound(new { message = $"Producto con ID {request.IdArticulo} no encontrado" });
+            }
+
+            // Validar que no exista ya un registro para este artículo en esta ubicación
+            if (await _context.Inventarios.AnyAsync(i => i.IdArticulo == request.IdArticulo && i.Ubicacion == request.Ubicacion))
+            {
+                return Conflict(new { message = $"Ya existe un registro de inventario para el artículo {articulo.Nombre} en la ubicación '{request.Ubicacion}'" });
+            }
+
+            var inventario = new Inventario
+            {
+                IdArticulo = request.IdArticulo,
+                Cantidad = request.Cantidad,
+                Ubicacion = request.Ubicacion,
+                UltimaModificacionPor = userId!.Value,
+                UltimaActualizacion = DateTime.Now
+            };
+
+            _context.Inventarios.Add(inventario);
+            await _context.SaveChangesAsync();
+
+            // Cargar las relaciones para la respuesta
+            await _context.Entry(inventario).Reference(i => i.Articulo).LoadAsync();
+            await _context.Entry(inventario).Reference(i => i.UsuarioModificador).LoadAsync();
+
+            return CreatedAtAction(nameof(GetInventoryByProduct), new { idArticulo = inventario.IdArticulo }, inventario);
+        }
+
+        // PUT /api/inventory/stock/{id} → actualizar cantidad de inventario
+        [HttpPut("stock/{id}")]
+        [Authorize]
+        public async Task<IActionResult> UpdateInventory(int id, [FromBody] UpdateInventoryRequest request)
+        {
+            // Validar permisos del usuario desde el token JWT
+            var (isValid, userId, errorMessage) = ValidateUserPermissions();
+            if (!isValid)
+            {
+                return Unauthorized(new { message = errorMessage });
+            }
+
+            var inventario = await _context.Inventarios.FindAsync(id);
+            if (inventario == null)
+            {
+                return NotFound(new { message = $"Registro de inventario con ID {id} no encontrado" });
+            }
+
+            inventario.Cantidad = request.Cantidad;
+            inventario.UltimaModificacionPor = userId!.Value;
+            inventario.UltimaActualizacion = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        // PATCH /api/inventory/stock/{id}/adjust → ajustar inventario (entrada/salida)
+        [HttpPatch("stock/{id}/adjust")]
+        [Authorize]
+        public async Task<IActionResult> AdjustInventory(int id, [FromBody] AdjustInventoryRequest request)
+        {
+            // Validar permisos del usuario desde el token JWT
+            var (isValid, userId, errorMessage) = ValidateUserPermissions();
+            if (!isValid)
+            {
+                return Unauthorized(new { message = errorMessage });
+            }
+
+            var inventario = await _context.Inventarios.FindAsync(id);
+            if (inventario == null)
+            {
+                return NotFound(new { message = $"Registro de inventario con ID {id} no encontrado" });
+            }
+
+            int nuevaCantidad = inventario.Cantidad + request.Ajuste;
+            if (nuevaCantidad < 0)
+            {
+                return BadRequest(new { message = $"No hay suficiente stock. Stock actual: {inventario.Cantidad}, ajuste solicitado: {request.Ajuste}" });
+            }
+
+            inventario.Cantidad = nuevaCantidad;
+            inventario.UltimaModificacionPor = userId!.Value;
+            inventario.UltimaActualizacion = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = $"Inventario ajustado. Nueva cantidad: {inventario.Cantidad}", cantidad = inventario.Cantidad });
+        }
+
+        // DELETE /api/inventory/stock/{id} → eliminar registro de inventario
+        [HttpDelete("stock/{id}")]
+        [Authorize]
+        public async Task<IActionResult> DeleteInventory(int id)
+        {
+            // Validar permisos del usuario desde el token JWT
+            var (isValid, userId, errorMessage) = ValidateUserPermissions();
+            if (!isValid)
+            {
+                return Unauthorized(new { message = errorMessage });
+            }
+
+            var inventario = await _context.Inventarios.FindAsync(id);
+            if (inventario == null)
+            {
+                return NotFound(new { message = $"Registro de inventario con ID {id} no encontrado" });
+            }
+
+            _context.Inventarios.Remove(inventario);
             await _context.SaveChangesAsync();
 
             return NoContent();

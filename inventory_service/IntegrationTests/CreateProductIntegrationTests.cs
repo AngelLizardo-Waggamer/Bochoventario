@@ -13,6 +13,8 @@ namespace inventory_service.IntegrationTests
     /// </summary>
     public class CreateProductIntegrationTests : IntegrationTestBase
     {
+        public CreateProductIntegrationTests(DatabaseFixture fixture) : base(fixture) { }
+
         [Fact]
         public async Task CreateProduct_ComoAdministrador_GuardaEnBaseDeDatosReal()
         {
