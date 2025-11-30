@@ -10,7 +10,7 @@ on:
 
 jobs:
   test-integration:
-    runs-on: ubuntu-latest # Usamos una máquina Linux de GitHub
+    runs-on: ubuntu-latest
 
     steps:
       # A. Descargar tu código
