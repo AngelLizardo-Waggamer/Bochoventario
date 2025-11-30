@@ -1,7 +1,36 @@
 version: '3.8'
 
 services:
-  # 🌐 1. Microservicio de Autenticación
+  # -------------------------------------------------------------
+  # 🐘 SERVICIO DE BASE DE DATOS (COMPARTIDO)
+  # -------------------------------------------------------------
+  db:
+    image: mysql:8.4
+    container_name: bocho-mysql-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}      # Base de datos principal
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5003:3306" # Puerto externo 5003, interno 3306
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # Si tienes un script de inicio para crear tablas, descomenta esto:
+      # - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - bochoventario_network
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  # -------------------------------------------------------------
+  # 🌐 1. MICROSERVICIO DE AUTENTICACIÓN (Node.js)
+  # -------------------------------------------------------------
   auth-app:
     build: 
       context: ./auth_service
@@ -9,44 +38,54 @@ services:
     container_name: jwt-auth-app
     restart: always
     ports:
-      # CORRECCIÓN 1: Mapeo explícito HOST:CONTENEDOR
       - "${AUTH_PORT}:${AUTH_PORT}" 
     volumes:
       - ./auth_service:/usr/src/app
       - /usr/src/app/node_modules 
     environment:
-      DB_HOST: db 
+      # Conexión a la DB compartida
+      DB_HOST: db   # Nombre del servicio de arriba
+      DB_PORT: 3306 
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
-      # Internamente Node debe hablar al 3306
-      DB_PORT: 3306 
+      # Seguridad
       JWT_SECRET: ${JWT_SECRET}
     depends_on:
       db:
-        condition: service_healthy 
+        condition: service_healthy
+    networks:
+      - bochoventario_network
 
-  # Servicio de MySQL
-  db:
-    image: mysql:8.4 
-    container_name: auth-mysql-db
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+  # -------------------------------------------------------------
+  # 📦 2. MICROSERVICIO DE INVENTARIO (.NET)
+  # -------------------------------------------------------------
+  inventory_api:
+    build:
+      context: ./inventory_service # Asegúrate de que esto apunte a donde está tu .csproj
+      dockerfile: inv-dockerfile
+    container_name: inventory_api
+    restart: unless-stopped
     ports:
-      - "5003:3306"
-    volumes:
-      - mysql-data:/var/lib/mysql
-    healthcheck:
-      #  El healthcheck interno debe ser al 3306, no al localhost
-      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
-      interval: 5s
-      timeout: 5s
-      retries: 6
-      start_period: 30s 
+      - "5001:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      # IMPORTANTE: Usamos la misma variable JWT_SECRET que auth-app
+      JWT_SECRET_KEY: ${JWT_SECRET} 
+      JWT_ISSUER: auth-service
+      JWT_AUDIENCE: inventory-api
+      # String de conexión actualizado para apuntar al servicio 'db'
+      DB_CONNECTION_STRING: Server=db;Port=3306;Database=${DB_NAME};User=${DB_USER};Password=${DB_PASSWORD};
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - bochoventario_network
 
 volumes:
   mysql-data: {}
+
+networks:
+  bochoventario_network:
+    driver: bridge

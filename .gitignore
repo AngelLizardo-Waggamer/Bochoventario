@@ -1,1 +1,2 @@
 inventory_service/docker-compose.yml
+.env
