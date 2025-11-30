@@ -1,0 +1,43 @@
+name: Auth - Tests Automatizados
+
+#  ¿Cuándo se ejecuta?
+on:
+  push:
+    branches: 
+      - main
+      - fuzball-tests # ¡Tu rama actual!
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-integration:
+    runs-on: ubuntu-latest # Usamos una máquina Linux de GitHub
+
+    steps:
+      # A. Descargar tu código
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      # GitHub Actions ya trae Docker instalado.
+      - name: Levantar Contenedores
+        run: docker compose up -d --build
+
+      # Esperar a que la Base de Datos esté lista
+      # Aunque usamos 'depends_on', a veces MySQL tarda unos segundos extra en aceptar conexiones.
+      - name: Esperar salud de la DB
+        run: sleep 30 
+
+      # Correr los Tests (La parte importante)
+      # Usamos el nombre del SERVICIO (auth-app), no del contenedor.
+      # El flag -T es vital en CI para evitar errores de terminal interactiva.
+      - name: Ejecutar Tests de Jest (Node.js)
+        run: docker compose exec -T auth-app npm test
+
+      # (Opcional) Ver logs si algo falla
+      - name: Mostrar logs si hay error
+        if: failure()
+        run: docker compose logs
+
+      #  Apagar todo al terminar
+      - name: Bajar Contenedores
+        run: docker compose down
