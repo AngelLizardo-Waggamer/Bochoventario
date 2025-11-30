@@ -1,11 +1,13 @@
 {
   "name": "jwt-auth-service",
   "version": "1.0.0",
+  "type": "module",
   "description": "Microservicio de autenticación JWT para BOCHOVENTARIO (Node.js 24, Express, MySQL)",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "keywords": [
     "jwt",
@@ -24,6 +26,8 @@
     "dotenv": "^16.4.5"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "jest": "^29.7.0",       
+    "supertest": "^6.3.3"
   }
 }

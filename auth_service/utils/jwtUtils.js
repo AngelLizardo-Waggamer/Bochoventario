@@ -12,7 +12,7 @@ export const ACCESS_TOKEN_EXPIRY = '1h';
 function getSecret() {
     const secret = process.env.JWT_SECRET;
     if (!secret) {
-        console.error("❌ ERROR CRÍTICO: JWT_SECRET no está definido en las variables de entorno.");
+        console.error("ERROR CRÍTICO: JWT_SECRET no está definido en las variables de entorno.");
         throw new Error('JWT_SECRET not configured.');
     }
     return secret;
@@ -43,7 +43,7 @@ export function verifyToken(token) {
         return jwt.verify(cleanToken, getSecret());
     } catch (error) {
         // ESTO ES CLAVE: Imprimimos el error real en la consola del servidor
-        console.error("⚠️ Error al verificar token:", error.message);
+        console.error("Error al verificar token:", error.message);
         
         // Lanzamos el error genérico para el cliente (seguridad)
         throw new Error('Token inválido o expirado');
