@@ -1,0 +1,80 @@
+name: Inventory Service Tests
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'inventory_service/**'
+      - '.github/workflows/inventory-service-tests.yml'
+  pull_request:
+    paths:
+      - 'inventory_service/**'
+      - '.github/workflows/inventory-service-tests.yml'
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./inventory_service
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build project
+      run: dotnet build --no-restore --configuration Release
+    
+    - name: Run unit tests
+      run: dotnet test --no-build --configuration Release --filter "FullyQualifiedName~inventory_service.Tests" --verbosity normal --logger "trx;LogFileName=unit-test-results.trx"
+    
+    - name: Upload unit test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: unit-test-results
+        path: inventory_service/TestResults/**/*.trx
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    
+    defaults:
+      run:
+        working-directory: ./inventory_service
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build project
+      run: dotnet build --no-restore --configuration Release
+    
+    - name: Run integration tests
+      run: dotnet test --no-build --configuration Release --filter "FullyQualifiedName~inventory_service.IntegrationTests" --verbosity normal --logger "trx;LogFileName=integration-test-results.trx"
+    
+    - name: Upload integration test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: integration-test-results
+        path: inventory_service/TestResults/**/*.trx
