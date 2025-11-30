@@ -14,6 +14,8 @@ namespace inventory_service.IntegrationTests
     /// </summary>
     public class GetProductsIntegrationTests : IntegrationTestBase
     {
+        public GetProductsIntegrationTests(DatabaseFixture fixture) : base(fixture) { }
+
         protected override async Task SeedDatabase()
         {
             await base.SeedDatabase();

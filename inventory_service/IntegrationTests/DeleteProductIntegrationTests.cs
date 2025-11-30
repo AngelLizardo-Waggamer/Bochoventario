@@ -12,6 +12,8 @@ namespace inventory_service.IntegrationTests
     /// </summary>
     public class DeleteProductIntegrationTests : IntegrationTestBase
     {
+        public DeleteProductIntegrationTests(DatabaseFixture fixture) : base(fixture) { }
+
         [Fact]
         public async Task DeleteProduct_ComoAdministrador_EliminaDeLaBaseDeDatos()
         {
