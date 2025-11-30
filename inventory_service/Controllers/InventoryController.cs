@@ -88,7 +88,7 @@ namespace inventory_service.Controllers
             return (true, userId, null);
         }
 
-        // GET /api/products → lista con filtros ?q=&category=
+        // GET /api/inventory → lista con filtros ?q=&category=
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Articulo>>> GetProducts(
             [FromQuery] string? q,
@@ -116,7 +116,7 @@ namespace inventory_service.Controllers
             return Ok(products);
         }
 
-        // GET /api/products/{id} → detalle
+        // GET /api/inventory/{id} → detalle
         [HttpGet("{id}")]
         public async Task<ActionResult<Articulo>> GetProduct(int id)
         {
@@ -132,7 +132,7 @@ namespace inventory_service.Controllers
             return Ok(articulo);
         }
 
-        // POST /api/products → crear
+        // POST /api/inventory → crear
         [HttpPost]
         [Authorize]
         public async Task<ActionResult<Articulo>> CreateProduct([FromBody] CreateProductRequest request)
@@ -156,7 +156,7 @@ namespace inventory_service.Controllers
             return CreatedAtAction(nameof(GetProduct), new { id = request.Articulo.IdArticulo }, request.Articulo);
         }
 
-        // PUT /api/products/{id} → actualizar
+        // PUT /api/inventory/{id} → actualizar
         [HttpPut("{id}")]
         [Authorize]
         public async Task<IActionResult> UpdateProduct(int id, [FromBody] UpdateProductRequest request)
@@ -218,7 +218,7 @@ namespace inventory_service.Controllers
             return NoContent();
         }
 
-        // DELETE /api/products/{id} → eliminar
+        // DELETE /api/inventory/{id} → eliminar
         [HttpDelete("{id}")]
         [Authorize]
         public async Task<IActionResult> DeleteProduct(int id)
